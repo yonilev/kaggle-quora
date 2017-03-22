@@ -7,7 +7,7 @@ TEST_FILE = 'test.csv'
 
 
 def read_file(file_name,nrows=None):
-    df =  pd.read_csv(file_name,nrows)
+    df =  pd.read_csv(file_name,nrows=nrows)
     df['question1'] = df.question1.apply(str)
     df['question2'] = df.question2.apply(str)
     return df

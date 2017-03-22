@@ -4,17 +4,8 @@ import keras
 from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional
 from keras.layers.merge import add,concatenate,multiply,maximum
 from keras.models import Model,Sequential
+from keras.preprocessing.sequence import pad_sequences
 from hash_tokenizer import *
-
-
-class Params(object):
-    def __init__(self):
-        self.seq_length = 50
-        self.dense_layers = 2
-        self.dense_dim = 300
-        self.embedding_dim = 300
-        self.siamese_layers = 2
-        self.lstm_dim = 300
 
 
 class Siamese(object):
@@ -41,7 +32,6 @@ class Siamese(object):
         model = Model(inputs=[input1,input2], outputs=predictions)
         return model
 
-
     def _get_shared_model(self):
         model = Sequential()
         model.add(Embedding(input_dim=self.tokenizer.get_input_dim(),
@@ -64,6 +54,24 @@ class Siamese(object):
         add siamese layers to model, e.g., lstm.
         """
 
+    def inputs_generator(self,df,batch_size,train=True):
+        l = len(df)
+        while True:
+            for ndx in range(0, l, batch_size):
+                curr_batch =  df[ndx:min(ndx + batch_size, l)]
+                sequences1 = self.tokenizer.texts_to_sequences(curr_batch.question1)
+                input1 = pad_sequences(sequences1, maxlen=self.params.seq_length, truncating='post')
+                sequences2 = self.tokenizer.texts_to_sequences(curr_batch.question2)
+                input2 = pad_sequences(sequences2, maxlen=self.params.seq_length, truncating='post')
+
+                labels = None
+                if train:
+                    labels = curr_batch.is_duplicate
+
+                yield [input1,input2],labels
+
+
+
 
 class LSTMSiamese(Siamese):
 
@@ -73,11 +81,21 @@ class LSTMSiamese(Siamese):
         model.add(Bidirectional(LSTM(self.params.lstm_dim)))
 
 
+class Params(object):
+    def __init__(self):
+        self.seq_length = 50
+        self.dense_layers = 1
+        self.dense_dim = 50
+        self.embedding_dim = 50
+        self.siamese_layers = 1
+        self.lstm_dim = 50
+        self.batch_size = 64
+
+
+
 def main():
-    tokenizer = load('tokenizer_20k_10k.p')
-    lstm_model = LSTMSiamese(tokenizer,Params())
-    lstm_model.model.compile(optimizer='adam',loss='binary_crossentropy')
-    print lstm_model.model.summary()
+    pass
+
 
 if __name__ == "__main__":
     main()

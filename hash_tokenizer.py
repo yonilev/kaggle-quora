@@ -58,14 +58,16 @@ def test_hash_tokenizer():
 
 def fit_tokenizer(nb_words,hash_vec_size,file_name):
     tokenizer = HashTokenizer(nb_words, hash_vec_size)
-    df_train,df_val,df_test = read_train()
+    df_train,_,_ = read_train()
     tokenizer.fit_on_texts(np.concatenate([df_train.question1,df_train.question2],axis=0))
     save(tokenizer,file_name)
 
+TOKENIZER_FILE = 'tokenizers/tokenizer_20k_10k.p'
+
 
 def main():
-    fit_tokenizer(20000,10000,'tokenizer_20k_10k.p')
-    # tokenizer = load_tokenizer('tokenizer_20k_10k.p')
+    fit_tokenizer(20000,10000,TOKENIZER_FILE)
+    # tokenizer = load_tokenizer(TOKENIZER_FILE)
 
 
     pass

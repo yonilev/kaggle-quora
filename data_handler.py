@@ -2,8 +2,8 @@ import pandas as pd
 from sklearn.cross_validation import train_test_split
 
 SEED = 1234
-TRAIN_FILE = 'train.csv'
-TEST_FILE = 'test.csv'
+TRAIN_FILE = 'data/train.csv'
+TEST_FILE = 'data/test.csv'
 
 
 def read_file(file_name,nrows=None):

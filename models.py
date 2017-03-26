@@ -12,9 +12,12 @@ import json
 
 
 class Siamese(object):
-    def __init__(self,tokenizer,params,verbose=False):
+    def __init__(self,tokenizer,params=None,verbose=False):
         self.tokenizer = tokenizer
-        self.params = params
+        if params is None:
+            self.params = self.generate_params()
+        else:
+            self.params = params
         self.verbose = verbose
         self.model = self._create_model()
 
@@ -71,6 +74,12 @@ class Siamese(object):
         add siamese layers to model, e.g., lstm.
         """
 
+    @abstractmethod
+    def generate_params(self):
+        """
+        generate model params
+        """
+
     def create_inputs(self,df):
         sequences1 = self.tokenizer.texts_to_sequences(df.question1)
         input1 = pad_sequences(sequences1, maxlen=self.params.seq_length, truncating='post')
@@ -105,9 +114,12 @@ class Siamese(object):
 class LSTMSiamese(Siamese):
     def siamese_layers(self, x):
         h = x
-        for _ in range(self.params.siamese_layers-1):
-           h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True,kernel_regularizer=l2(self.params.l2)))(h)
+        for _ in range(self.params.lstm_layers-1):
+           h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True, kernel_regularizer=l2(self.params.l2)))(h)
         return Bidirectional(LSTM(self.params.lstm_dim, kernel_regularizer=l2(self.params.l2)))(h)
+
+    def generate_params(self):
+        return LSTMParams(True)
 
 
 class CNNSiamese(Siamese):
@@ -115,55 +127,83 @@ class CNNSiamese(Siamese):
         features = list()
         for kernel_size in range(self.params.min_kernel,self.params.max_kernel+1):
             pool_length = self.params.seq_length - kernel_size + 1
-            filters = self.params.filters*kernel_size
-            conv = Conv1D(filters,kernel_size,activation='relu',kernel_regularizer=l2(self.params.l2))(x)
+            filters = min(200,self.params.filters*kernel_size)
+            conv = Conv1D(filters,kernel_size,activation='tanh',kernel_regularizer=l2(self.params.l2))(x)
             pool = MaxPool1D(pool_length)(conv)
             feature = Flatten()(pool)
             features.append(feature)
         return concatenate(features)
 
+    def generate_params(self):
+        return CNNParams(True)
 
 
 class Params(object):
-    def __init__(self,random=False):
+    def __init__(self,random):
         self.seq_length = 50
         self.dense_layers = 1
         self.dense_dim = 50
         self.embedding_dim = 50
-        self.siamese_layers = 1
-        self.lstm_dim = 50
         self.batch_size = 64
         self.l2 = 0.001
         self.lr = 0.001
-        self.batch_norm = False
-        self.dropout = 0
-        self.min_kernel = 1
-        self.max_kernel = 3
-        self.filters = 25
+        self.batch_norm = 0
+        self.dropout = 0.5
 
         if random:
+            self.seq_length = np.random.choice([30,50])
             self.dense_layers = np.random.choice([1,2,3])
             self.dense_dim = np.random.choice([50,100,300])
             self.embedding_dim = np.random.choice([50,100,300])
-            self.siamese_layers = np.random.choice([1,2])
-            self.lstm_dim = np.random.choice([50,100,300])
             self.batch_size = np.random.choice([64,128,256])
             self.l2 = 10**np.random.uniform(-7,0)
             self.lr = 10**np.random.uniform(-4,-2)
-            self.batch_norm = np.random.choice([False,True])
+            self.batch_norm = np.random.choice([0,1])
             self.dropout = np.random.choice([0,0.1,0.5])
 
     def __str__(self):
         return str(json.dumps(self.__dict__))
 
 
-def load_from_file(prefix,tokenizer_file,model_class):
-    tokenizer = load(tokenizer_file)
-    params = Params()
-    with open('models/{}.params'.format(prefix)) as f:
-        params.__dict__ = json.load(f)
+class LSTMParams(Params):
+    def __init__(self,random=False):
+        super(LSTMParams, self).__init__(random)
+        self.model = 'lstm'
+        self.lstm_layers = 1
+        self.lstm_dim = 50
 
-    o = model_class(tokenizer,params)
+        if random:
+            self.lstm_layers = np.random.choice([1,2])
+            self.lstm_dim = np.random.choice([50,100,300])
+
+
+class CNNParams(Params):
+    def __init__(self,random=False):
+        super(CNNParams, self).__init__(random)
+        self.model = 'cnn'
+        self.min_kernel = 1
+        self.max_kernel = 3
+        self.filters = 25
+
+        if random:
+            self.min_kernel = np.random.choice([1,2,3])
+            self.max_kernel = np.random.choice([3,4,5])
+            self.filters = np.random.choice([25,50])
+
+
+def load_from_file(prefix,tokenizer_file):
+    tokenizer = load(tokenizer_file)
+    with open('models/{}.params'.format(prefix)) as f:
+        params_dic = json.load(f)
+
+    if params_dic['model']=='cnn':
+        params = CNNParams()
+        params.__dict__ = params_dic
+        o = CNNSiamese(tokenizer,params)
+    else:
+        params = LSTMParams()
+        params.__dict__ = params_dic
+        o = LSTMSiamese(tokenizer,params)
     o.model.load_weights('models/{}.weights'.format(prefix))
     return o
 

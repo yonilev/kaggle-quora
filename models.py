@@ -1,6 +1,7 @@
 from abc import abstractmethod
 
-from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional,Dropout,Activation,BatchNormalization
+from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional,Dropout,\
+    Activation,BatchNormalization,Conv1D,MaxPool1D,Flatten
 from keras.layers.merge import add,concatenate,multiply,maximum
 from keras.models import Model,Sequential
 from keras.preprocessing.sequence import pad_sequences
@@ -11,16 +12,23 @@ import json
 
 
 class Siamese(object):
-    def __init__(self,tokenizer,params):
+    def __init__(self,tokenizer,params,verbose=False):
         self.tokenizer = tokenizer
         self.params = params
+        self.verbose = verbose
         self.model = self._create_model()
 
-    def _create_model(self):
-        shared_model = self._get_shared_model()
+        if self.verbose:
+            print self.model.summary()
 
-        input1 = Input(shape=(self.params.seq_length,))
-        input2 = Input(shape=(self.params.seq_length,))
+    def _create_model(self):
+        input_shape = (self.params.seq_length,)
+        input1 = Input(shape=input_shape)
+        input2 = Input(shape=input_shape)
+
+        shared_model = self._get_shared_model(input_shape)
+        if self.verbose:
+            print shared_model.summary()
 
         hidden1 = shared_model(input1)
         hidden2 = shared_model(input2)
@@ -39,14 +47,15 @@ class Siamese(object):
         model = Model(inputs=[input1,input2], outputs=predictions)
         return model
 
-    def _get_shared_model(self):
-        model = Sequential()
-        model.add(Embedding(input_dim=self.tokenizer.get_input_dim(),
+    def _get_shared_model(self,input_shape):
+        input1 = Input(input_shape)
+        embedding = Embedding(input_dim=self.tokenizer.get_input_dim(),
                             output_dim=self.params.embedding_dim,
                             input_length=self.params.seq_length,
-                            embeddings_regularizer=l2(self.params.l2)))
-        self.add_siamese_layers(model)
-        return model
+                            embeddings_regularizer=l2(self.params.l2))(input1)
+        outputs = self.siamese_layers(embedding)
+        return Model(inputs=input1,outputs=outputs)
+
 
     @staticmethod
     def _merge_sides(hidden1, hidden2):
@@ -57,7 +66,7 @@ class Siamese(object):
         return concatenate(merges)
 
     @abstractmethod
-    def add_siamese_layers(self, model):
+    def siamese_layers(self, x):
         """
         add siamese layers to model, e.g., lstm.
         """
@@ -94,10 +103,25 @@ class Siamese(object):
 
 
 class LSTMSiamese(Siamese):
-    def add_siamese_layers(self, model):
+    def siamese_layers(self, x):
+        h = x
         for _ in range(self.params.siamese_layers-1):
-            model.add(Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True)))
-        model.add(Bidirectional(LSTM(self.params.lstm_dim)))
+           h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True,kernel_regularizer=l2(self.params.l2)))(h)
+        return Bidirectional(LSTM(self.params.lstm_dim, kernel_regularizer=l2(self.params.l2)))(h)
+
+
+class CNNSiamese(Siamese):
+    def siamese_layers(self, x):
+        features = list()
+        for kernel_size in range(self.params.min_kernel,self.params.max_kernel+1):
+            pool_length = self.params.seq_length - kernel_size + 1
+            filters = self.params.filters*kernel_size
+            conv = Conv1D(filters,kernel_size,activation='relu',kernel_regularizer=l2(self.params.l2))(x)
+            pool = MaxPool1D(pool_length)(conv)
+            feature = Flatten()(pool)
+            features.append(feature)
+        return concatenate(features)
+
 
 
 class Params(object):
@@ -113,6 +137,9 @@ class Params(object):
         self.lr = 0.001
         self.batch_norm = False
         self.dropout = 0
+        self.min_kernel = 1
+        self.max_kernel = 3
+        self.filters = 25
 
         if random:
             self.dense_layers = np.random.choice([1,2,3])
@@ -141,11 +168,11 @@ def load_from_file(prefix,tokenizer_file,model_class):
     return o
 
 
-MODEL_PREFIX = 'lstm_baseline2'
+MODEL_PREFIX = 'cnn_baseline'
+
 
 def main():
     pass
-
 
 if __name__ == "__main__":
     main()

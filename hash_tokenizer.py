@@ -53,7 +53,7 @@ def test_hash_tokenizer():
     texts = ['a a b c c d', 'e e f g']
     tokenizer.fit_on_texts(texts)
 
-    print tokenizer.get_input_dim()
+    print (tokenizer.get_input_dim())
 
 
 def fit_tokenizer(nb_words,hash_vec_size,file_name):

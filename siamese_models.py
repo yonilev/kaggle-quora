@@ -3,12 +3,13 @@ from abc import abstractmethod
 from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional,Dropout,\
     Activation,BatchNormalization,Conv1D,MaxPool1D,Flatten
 from keras.layers.merge import add,concatenate,multiply,maximum
-from keras.models import Model,Sequential
+from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.regularizers import l2
 from hash_tokenizer import *
 import math
 import json
+import random
 
 
 class Siamese(object):
@@ -22,7 +23,7 @@ class Siamese(object):
         self.model = self._create_model()
 
         if self.verbose:
-            print self.model.summary()
+            print (self.model.summary())
 
     def _create_model(self):
         input_shape = (self.params.seq_length,)
@@ -31,7 +32,7 @@ class Siamese(object):
 
         shared_model = self._get_shared_model(input_shape)
         if self.verbose:
-            print shared_model.summary()
+            print (shared_model.summary())
 
         hidden1 = shared_model(input1)
         hidden2 = shared_model(input2)
@@ -139,7 +140,7 @@ class CNNSiamese(Siamese):
 
 
 class Params(object):
-    def __init__(self,random):
+    def __init__(self,random_params):
         self.seq_length = 50
         self.dense_layers = 1
         self.dense_dim = 50
@@ -150,45 +151,45 @@ class Params(object):
         self.batch_norm = 0
         self.dropout = 0.5
 
-        if random:
-            self.seq_length = np.random.choice([30,50])
-            self.dense_layers = np.random.choice([1,2,3])
-            self.dense_dim = np.random.choice([50,100,300])
-            self.embedding_dim = np.random.choice([50,100,300])
-            self.batch_size = np.random.choice([64,128,256])
-            self.l2 = 10**np.random.uniform(-7,0)
-            self.lr = 10**np.random.uniform(-4,-2)
-            self.batch_norm = np.random.choice([0,1])
-            self.dropout = np.random.choice([0,0.1,0.5])
+        if random_params:
+            self.seq_length = random.choice([30,50])
+            self.dense_layers = random.choice([1,2,3])
+            self.dense_dim = random.choice([50,100,300])
+            self.embedding_dim = random.choice([50,100,300])
+            self.batch_size = random.choice([64,128,256])
+            self.l2 = 10**random.uniform(-7,-1)
+            self.lr = 10**random.uniform(-5,-2)
+            self.batch_norm = random.choice([0,1])
+            self.dropout = random.choice([0,0.1,0.5])
 
     def __str__(self):
         return str(json.dumps(self.__dict__))
 
 
 class LSTMParams(Params):
-    def __init__(self,random=False):
+    def __init__(self,random_params=False):
         super(LSTMParams, self).__init__(random)
         self.model = 'lstm'
         self.lstm_layers = 1
         self.lstm_dim = 50
 
-        if random:
-            self.lstm_layers = np.random.choice([1,2])
-            self.lstm_dim = np.random.choice([50,100,300])
+        if random_params:
+            self.lstm_layers = random.choice([1,2])
+            self.lstm_dim = random.choice([50,100,300])
 
 
 class CNNParams(Params):
-    def __init__(self,random=False):
+    def __init__(self,random_params=False):
         super(CNNParams, self).__init__(random)
         self.model = 'cnn'
         self.min_kernel = 1
         self.max_kernel = 3
         self.filters = 25
 
-        if random:
-            self.min_kernel = np.random.choice([1,2,3])
-            self.max_kernel = np.random.choice([3,4,5])
-            self.filters = np.random.choice([25,50])
+        if random_params:
+            self.min_kernel = random.choice([1,2,3])
+            self.max_kernel = random.choice([3,4,5])
+            self.filters = random.choice([25,50])
 
 
 def load_from_file(prefix,tokenizer_file):

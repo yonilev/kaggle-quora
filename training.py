@@ -1,14 +1,13 @@
-from models import *
+from siamese_models import *
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping,ModelCheckpoint,ReduceLROnPlateau
 import pandas as pd
 from sklearn.metrics import log_loss
+import glob
 
 
-def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience=5,reduce_lr_patience=2):
+def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,reduce_lr_patience):
     print (model.params)
-    with open('models/{}.params'.format(prefix),'w') as f:
-        f.write(str(model.params))
 
     model.model.compile(optimizer=Adam(model.params.lr),loss='binary_crossentropy',
                         metrics=['binary_crossentropy'])
@@ -29,16 +28,27 @@ def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience=5,re
                               validation_steps=val_steps,epochs=epochs,callbacks=callbacks)
     pd.DataFrame(history.history).to_csv('models/{}.history'.format(prefix),index=False)
 
+    with open('models/{}.params'.format(prefix),'w') as f:
+        f.write(str(model.params))
 
-def params_search(experiments,epochs,nrows):
+
+def params_search(experiments,epochs,nrows,early_stopping_patience=5,reduce_lr_patience=2):
+    prefix = 0
+    for f in glob.glob(('models/*')):
+        prefix = int(f.split('/')[-1].split('.')[0])
+
     tokenizer = load(TOKENIZER_FILE)
     for experiment in range(experiments):
-        print ('Experiment:',experiment)
-        model_class = np.random.choice([CNNSiamese,LSTMSiamese])
-        model = model_class(tokenizer)
-        df_train,df_val,_ = read_train(nrows=nrows)
-        train_model(model,df_train,df_val,epochs,experiment)
-        print ('\n\n')
+        try:
+            prefix += 1
+            print ('Experiment:',experiment)
+            model_class = np.random.choice([CNNSiamese,LSTMSiamese])
+            model = model_class(tokenizer)
+            df_train,df_val,_ = read_train(nrows=nrows)
+            train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,reduce_lr_patience)
+            print ('\n\n')
+        except Exception as e:
+            print (e)
 
 
 def evaluate(model):
@@ -48,9 +58,9 @@ def evaluate(model):
 
 
 def main():
-    params_search(100,50,20000)
-    model = load_from_file(0,TOKENIZER_FILE)
-    evaluate(model)
+    params_search(100,50,50000,1,1)
+    # model = load_from_file(0,TOKENIZER_FILE)
+    # evaluate(model)
 
 
 

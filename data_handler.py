@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import train_test_split
 
 SEED = 1234
 TRAIN_FILE = 'data/train.csv'

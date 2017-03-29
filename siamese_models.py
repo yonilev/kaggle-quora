@@ -14,12 +14,9 @@ import random
 
 
 class Siamese(object):
-    def __init__(self,tokenizer,params=None,verbose=False):
+    def __init__(self,tokenizer,random_params=False,verbose=False):
         self.tokenizer = tokenizer
-        if params is None:
-            self.params = self.generate_params()
-        else:
-            self.params = params
+        self.params = self.generate_params(random_params)
         self.params.tokenizer = self.tokenizer.path
         self.verbose = verbose
         self.model = self._create_model()
@@ -86,7 +83,7 @@ class Siamese(object):
         """
 
     @abstractmethod
-    def generate_params(self):
+    def generate_params(self,random_params):
         """
         generate model params
         """
@@ -129,8 +126,8 @@ class LSTMSiamese(Siamese):
            h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True, kernel_regularizer=l2(self.params.l2)))(h)
         return Bidirectional(LSTM(self.params.lstm_dim, kernel_regularizer=l2(self.params.l2)))(h)
 
-    def generate_params(self):
-        return LSTMParams(True)
+    def generate_params(self,random_params):
+        return LSTMParams(random_params)
 
 
 class CNNSiamese(Siamese):
@@ -145,8 +142,8 @@ class CNNSiamese(Siamese):
             features.append(feature)
         return concatenate(features)
 
-    def generate_params(self):
-        return CNNParams(True)
+    def generate_params(self,random_params):
+        return CNNParams(random_params)
 
 
 class Params(object):
@@ -181,7 +178,7 @@ class Params(object):
 
 
 class LSTMParams(Params):
-    def __init__(self,random_params=False):
+    def __init__(self,random_params):
         super(LSTMParams, self).__init__(random_params)
         self.model = 'lstm'
         self.lstm_layers = 1
@@ -193,7 +190,7 @@ class LSTMParams(Params):
 
 
 class CNNParams(Params):
-    def __init__(self,random_params=False):
+    def __init__(self,random_params):
         super(CNNParams, self).__init__(random_params)
         self.model = 'cnn'
         self.min_kernel = 1

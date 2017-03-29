@@ -39,14 +39,14 @@ class Siamese(object):
         hidden = self._merge_sides(hidden1,hidden2)
 
         for _ in range(self.params.dense_layers):
-            hidden = Dense(self.params.dense_dim,kernel_regularizer=l2(self.params.l2))(hidden)
+            hidden = Dense(self.params.dense_dim,kernel_regularizer=l2(self.params.l2_dense))(hidden)
             if self.params.batch_norm:
                 hidden = BatchNormalization()(hidden)
             hidden = Activation('relu')(hidden)
             hidden = Dropout(self.params.dropout)(hidden)
 
         predictions = Dense(1,activation='sigmoid',
-                            kernel_regularizer=l2(self.params.l2))(hidden)
+                            kernel_regularizer=l2(self.params.l2_dense))(hidden)
         model = Model(inputs=[input1,input2], outputs=predictions)
         return model
 
@@ -62,7 +62,7 @@ class Siamese(object):
         embedding = Embedding(input_dim=self.tokenizer.get_input_dim(),
                             output_dim=self.params.embedding_dim,
                             input_length=self.params.seq_length,
-                            embeddings_regularizer=l2(self.params.l2),
+                            embeddings_regularizer=l2(self.params.l2_embedding),
                             weights=weights)(input1)
         outputs = self.siamese_layers(embedding)
         return Model(inputs=input1,outputs=outputs)
@@ -123,8 +123,8 @@ class LSTMSiamese(Siamese):
     def siamese_layers(self, x):
         h = x
         for _ in range(self.params.lstm_layers-1):
-           h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True, kernel_regularizer=l2(self.params.l2)))(h)
-        return Bidirectional(LSTM(self.params.lstm_dim, kernel_regularizer=l2(self.params.l2)))(h)
+           h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True, kernel_regularizer=l2(self.params.l2_siamese)))(h)
+        return Bidirectional(LSTM(self.params.lstm_dim, kernel_regularizer=l2(self.params.l2_siamese)))(h)
 
     def generate_params(self,random_params):
         return LSTMParams(random_params)
@@ -136,7 +136,7 @@ class CNNSiamese(Siamese):
         for kernel_size in range(self.params.min_kernel,self.params.max_kernel+1):
             pool_length = self.params.seq_length - kernel_size + 1
             filters = min(200,self.params.filters*kernel_size)
-            conv = Conv1D(filters,kernel_size,activation='tanh',kernel_regularizer=l2(self.params.l2))(x)
+            conv = Conv1D(filters,kernel_size,activation='tanh',kernel_regularizer=l2(self.params.l2_siamese))(x)
             pool = MaxPool1D(pool_length)(conv)
             feature = Flatten()(pool)
             features.append(feature)
@@ -153,7 +153,9 @@ class Params(object):
         self.dense_dim = 50
         self.embedding_dim = 50
         self.batch_size = 64
-        self.l2 = 0.00002
+        self.l2_embedding = 0.00002
+        self.l2_siamese = 0.00002
+        self.l2_dense = 0.00002
         self.lr = 0.001
         self.batch_norm = 0
         self.dropout = 0.1
@@ -166,7 +168,9 @@ class Params(object):
             self.dense_dim = random.choice([50,100,300])
             self.embedding_dim = random.choice([50,100,300])
             self.batch_size = random.choice([64,128,256])
-            self.l2 = 10**random.uniform(-7,-1)
+            self.l2_embedding = 10**random.uniform(-7,-1)
+            self.l2_siamese = 10**random.uniform(-7,-1)
+            self.l2_dense = 10**random.uniform(-7,-1)
             self.lr = 10**random.uniform(-5,-2)
             self.batch_norm = random.choice([0,1])
             self.dropout = random.choice([0,0.1,0.5])

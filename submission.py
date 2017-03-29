@@ -9,7 +9,7 @@ def make_submission(prefix,tokenizer_file,model_class):
 
 
 def main():
-    make_submission(MODEL_PREFIX,TOKENIZER_FILE,LSTMSiamese)
+    make_submission(MODEL_PREFIX, TOKENIZER_20K_10K, LSTMSiamese)
 
 
 if __name__ == "__main__":

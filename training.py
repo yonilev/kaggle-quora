@@ -8,6 +8,8 @@ import glob
 
 def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,reduce_lr_patience):
     print (model.params)
+    with open('models/{}.params'.format(prefix),'w') as f:
+        f.write(str(model.params))
 
     model.model.compile(optimizer=Adam(model.params.lr),loss='binary_crossentropy',
                         metrics=['binary_crossentropy'])
@@ -28,21 +30,21 @@ def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,redu
                               validation_steps=val_steps,epochs=epochs,callbacks=callbacks)
     pd.DataFrame(history.history).to_csv('models/{}.history'.format(prefix),index=False)
 
-    with open('models/{}.params'.format(prefix),'w') as f:
-        f.write(str(model.params))
 
-
-def params_search(experiments,epochs,nrows,early_stopping_patience=5,reduce_lr_patience=2):
+def params_search(experiments,epochs,nrows,early_stopping_patience,reduce_lr_patience):
     prefix = 0
     for f in glob.glob(('models/*')):
         prefix = int(f.split('/')[-1].split('.')[0])
 
-    tokenizer = load(TOKENIZER_FILE)
+    tokenizer1 = load(TOKENIZER_20K_10K)
+    tokenizer2 = load(TOKENIZER_ALL)
+
     for experiment in range(experiments):
         try:
             prefix += 1
             print ('Experiment:',experiment)
-            model_class = np.random.choice([CNNSiamese,LSTMSiamese])
+            model_class = random.choice([CNNSiamese,LSTMSiamese])
+            tokenizer = random.choice([tokenizer1, tokenizer2])
             model = model_class(tokenizer)
             df_train,df_val,_ = read_train(nrows=nrows)
             train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,reduce_lr_patience)
@@ -58,7 +60,7 @@ def evaluate(model):
 
 
 def main():
-    params_search(100,50,50000,1,1)
+    params_search(5,2,1000,0,0)
     # model = load_from_file(0,TOKENIZER_FILE)
     # evaluate(model)
 

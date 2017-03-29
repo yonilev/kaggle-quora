@@ -5,9 +5,10 @@ import numpy as np
 
 
 class HashTokenizer(Tokenizer):
-    def __init__(self, num_words,hash_vec_size):
+    def __init__(self, num_words,hash_vec_size, path):
         super(HashTokenizer, self).__init__(num_words)
         self.hash_vec_size = hash_vec_size
+        self.path = path
 
     #overide method
     def texts_to_sequences_generator(self, texts):
@@ -56,18 +57,24 @@ def test_hash_tokenizer():
     print (tokenizer.get_input_dim())
 
 
-def fit_tokenizer(nb_words,hash_vec_size,file_name):
-    tokenizer = HashTokenizer(nb_words, hash_vec_size)
-    df_train,_,_ = read_train()
-    tokenizer.fit_on_texts(np.concatenate([df_train.question1,df_train.question2],axis=0))
+def fit_tokenizer(nb_words,hash_vec_size,file_name,df):
+    tokenizer = HashTokenizer(nb_words, hash_vec_size,file_name)
+    tokenizer.fit_on_texts(np.concatenate([df.question1,df.question2],axis=0))
     save(tokenizer,file_name)
 
-TOKENIZER_FILE = 'tokenizers/tokenizer_20k_10k.p'
+
+TOKENIZER_20K_10K = 'tokenizers/tokenizer_20k_10k.p'
+TOKENIZER_ALL = 'tokenizers/tokenizer_all.p'
 
 
 def main():
-    fit_tokenizer(20000,10000,TOKENIZER_FILE)
-    # tokenizer = load_tokenizer(TOKENIZER_FILE)
+    df_train,df_val,_ = read_train()
+
+    fit_tokenizer(20000,10000,TOKENIZER_20K_10K,df_train)
+
+    df = pd.concat([df_train,df_val],axis=0)
+    fit_tokenizer(None,1,TOKENIZER_ALL,df)
+
 
 
     pass

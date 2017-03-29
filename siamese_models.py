@@ -7,6 +7,7 @@ from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.regularizers import l2
 from hash_tokenizer import *
+from embedding import embeddings_for_tokenizer
 import math
 import json
 import random
@@ -19,6 +20,7 @@ class Siamese(object):
             self.params = self.generate_params()
         else:
             self.params = params
+        self.params.tokenizer = self.tokenizer.path
         self.verbose = verbose
         self.model = self._create_model()
 
@@ -53,10 +55,18 @@ class Siamese(object):
 
     def _get_shared_model(self,input_shape):
         input1 = Input(input_shape)
+
+        if self.params.pre_train_embedding:
+            weights = embeddings_for_tokenizer(self.tokenizer,self.params.embedding_dim)
+            weights = [weights]
+        else:
+            weights = None
+
         embedding = Embedding(input_dim=self.tokenizer.get_input_dim(),
                             output_dim=self.params.embedding_dim,
                             input_length=self.params.seq_length,
-                            embeddings_regularizer=l2(self.params.l2))(input1)
+                            embeddings_regularizer=l2(self.params.l2),
+                            weights=weights)(input1)
         outputs = self.siamese_layers(embedding)
         return Model(inputs=input1,outputs=outputs)
 
@@ -146,10 +156,12 @@ class Params(object):
         self.dense_dim = 50
         self.embedding_dim = 50
         self.batch_size = 64
-        self.l2 = 0.001
+        self.l2 = 0.00002
         self.lr = 0.001
         self.batch_norm = 0
-        self.dropout = 0.5
+        self.dropout = 0.1
+        self.pre_train_embedding = 1
+        self.tokenizer = None
 
         if random_params:
             self.seq_length = random.choice([30,50])
@@ -161,6 +173,8 @@ class Params(object):
             self.lr = 10**random.uniform(-5,-2)
             self.batch_norm = random.choice([0,1])
             self.dropout = random.choice([0,0.1,0.5])
+            self.pre_train_embedding = random.choice([0,1])
+
 
     def __str__(self):
         return str(json.dumps(self.__dict__))
@@ -168,7 +182,7 @@ class Params(object):
 
 class LSTMParams(Params):
     def __init__(self,random_params=False):
-        super(LSTMParams, self).__init__(random)
+        super(LSTMParams, self).__init__(random_params)
         self.model = 'lstm'
         self.lstm_layers = 1
         self.lstm_dim = 50
@@ -180,7 +194,7 @@ class LSTMParams(Params):
 
 class CNNParams(Params):
     def __init__(self,random_params=False):
-        super(CNNParams, self).__init__(random)
+        super(CNNParams, self).__init__(random_params)
         self.model = 'cnn'
         self.min_kernel = 1
         self.max_kernel = 3

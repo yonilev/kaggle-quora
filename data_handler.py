@@ -15,7 +15,7 @@ def read_file(file_name,nrows=None):
 
 def read_train(test_size=0.1,val_size=0.5,nrows=None):
     df_train = read_file(TRAIN_FILE,nrows)
-    df_train = df_train.sample(frac=1)
+    df_train = df_train.sample(frac=1,random_state=SEED)
     df_train,df_test = train_test_split(df_train, test_size=test_size, random_state=SEED)
     df_test,df_val = train_test_split(df_test, test_size=val_size, random_state=SEED)
     return df_train,df_val,df_test

@@ -68,12 +68,11 @@ TOKENIZER_ALL = 'tokenizers/tokenizer_all.p'
 
 
 def main():
-    df_train,df_val,_ = read_train()
+    df_train,_,_ = read_train()
 
     fit_tokenizer(20000,10000,TOKENIZER_20K_10K,df_train)
 
-    df = pd.concat([df_train,df_val],axis=0)
-    fit_tokenizer(None,1,TOKENIZER_ALL,df)
+    fit_tokenizer(None,1,TOKENIZER_ALL,df_train)
 
 
 

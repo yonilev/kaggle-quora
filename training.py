@@ -60,12 +60,12 @@ def evaluate(model):
 
 
 def main():
-    # tokenizer = load(TOKENIZER_20K_10K)
-    # model = LSTMSiamese(tokenizer)
-    # df_train,df_val,_ = read_train()
-    # train_model(model,df_train,df_val,50,'lstm_embeddings',3,0)
+    tokenizer = load(TOKENIZER_20K_10K)
+    model = LSTMSiamese(tokenizer)
+    df_train,df_val,_ = read_train()
+    train_model(model,df_train,df_val,50,'lstm_embeddings',3,0)
 
-    params_search(100,50,50000,1,1)
+    # params_search(100,50,50000,2,1)
 
 
 

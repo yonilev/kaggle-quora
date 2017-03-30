@@ -115,7 +115,7 @@ class Siamese(object):
     def predict(self,df,batch_size=10000):
         steps = self.num_of_steps(df,batch_size)
         gen = self.inputs_generator(df,False,batch_size=batch_size)
-        preds = self.model.predict_generator(gen,steps)
+        preds = self.model.predict_generator(gen,steps,verbose=True)
         return [p[0] for p in preds]
 
 
@@ -150,12 +150,12 @@ class Params(object):
     def __init__(self,random_params):
         self.seq_length = 50
         self.dense_layers = 1
-        self.dense_dim = 50
-        self.embedding_dim = 50
+        self.dense_dim = 100
+        self.embedding_dim = 100
         self.batch_size = 64
-        self.l2_embedding = 0.00002
-        self.l2_siamese = 0.00002
-        self.l2_dense = 0.00002
+        self.l2_embedding = 0.000001
+        self.l2_siamese = 0.000001
+        self.l2_dense = 0.0001
         self.lr = 0.001
         self.batch_norm = 0
         self.dropout = 0.1
@@ -163,18 +163,7 @@ class Params(object):
         self.tokenizer = None
 
         if random_params:
-            self.seq_length = random.choice([30,50])
-            self.dense_layers = random.choice([1,2,3])
-            self.dense_dim = random.choice([50,100,300])
-            self.embedding_dim = random.choice([50,100,300])
-            self.batch_size = random.choice([64,128,256])
-            self.l2_embedding = 10**random.uniform(-7,-1)
-            self.l2_siamese = 10**random.uniform(-7,-1)
-            self.l2_dense = 10**random.uniform(-7,-1)
-            self.lr = 10**random.uniform(-5,-2)
-            self.batch_norm = random.choice([0,1])
-            self.dropout = random.choice([0,0.1,0.5])
-            self.pre_train_embedding = random.choice([0,1])
+            pass
 
 
     def __str__(self):
@@ -186,11 +175,11 @@ class LSTMParams(Params):
         super(LSTMParams, self).__init__(random_params)
         self.model = 'lstm'
         self.lstm_layers = 1
-        self.lstm_dim = 50
+        self.lstm_dim = 100
+        self.seq_length = 30
 
         if random_params:
-            self.lstm_layers = random.choice([1,2])
-            self.lstm_dim = random.choice([50,100,300])
+            pass
 
 
 class CNNParams(Params):
@@ -199,12 +188,11 @@ class CNNParams(Params):
         self.model = 'cnn'
         self.min_kernel = 1
         self.max_kernel = 3
-        self.filters = 25
+        self.filters = 50
+        self.seq_length = 50
 
         if random_params:
-            self.min_kernel = random.choice([1,2,3])
-            self.max_kernel = random.choice([3,4,5])
-            self.filters = random.choice([25,50])
+            pass
 
 
 def load_from_file(prefix,tokenizer_file):
@@ -224,11 +212,9 @@ def load_from_file(prefix,tokenizer_file):
     return o
 
 
-MODEL_PREFIX = 'cnn_baseline'
-
-
 def main():
     pass
+
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from nltk import word_tokenize
+from keras.preprocessing.text import text_to_word_sequence
 
 
 SEED = 1234
@@ -32,6 +33,8 @@ def preprocess_file(file):
 
 
 def tokenize_text(text):
+    text = text.replace('’',"'")
+    text = ' '.join(text_to_word_sequence(text))
     return ' '.join(word_tokenize(text))
 
 

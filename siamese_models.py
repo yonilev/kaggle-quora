@@ -112,7 +112,7 @@ class Siamese(object):
     def num_of_steps(self,df,batch_size):
         return int(math.ceil(len(df)*1.0/batch_size))
 
-    def predict(self,df,batch_size=10000):
+    def predict(self,df,batch_size=1000):
         steps = self.num_of_steps(df,batch_size)
         gen = self.inputs_generator(df,False,batch_size=batch_size)
         preds = self.model.predict_generator(gen,steps,verbose=True)
@@ -149,12 +149,12 @@ class CNNSiamese(Siamese):
 class Params(object):
     def __init__(self,random_params):
         self.seq_length = 50
-        self.dense_layers = 1
+        self.dense_layers = 2
         self.dense_dim = 100
         self.embedding_dim = 100
-        self.batch_size = 64
-        self.l2_embedding = 0.000001
-        self.l2_siamese = 0.000001
+        self.batch_size = 128
+        self.l2_embedding = 0.0000001
+        self.l2_siamese = 0.0001
         self.l2_dense = 0.0001
         self.lr = 0.001
         self.batch_norm = 0
@@ -201,11 +201,11 @@ def load_from_file(prefix,tokenizer_file):
         params_dic = json.load(f)
 
     if params_dic['model']=='cnn':
-        params = CNNParams()
+        params = CNNParams(False)
         params.__dict__ = params_dic
         o = CNNSiamese(tokenizer,params)
     else:
-        params = LSTMParams()
+        params = LSTMParams(False)
         params.__dict__ = params_dic
         o = LSTMSiamese(tokenizer,params)
     o.model.load_weights('models/{}.weights'.format(prefix))

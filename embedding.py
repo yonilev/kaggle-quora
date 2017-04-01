@@ -14,6 +14,12 @@ def embeddings_for_tokenizer(tokenizer,dim,std=0.05):
             embeddings[ind,:] += np.array([float(x) for x in spl[1:]])
             counts[ind] += 1
 
+    found = 0
+    for c in counts:
+        if c>0:
+            found+=1
+    print('found: {}'.format(found/len(counts)))
+
     for i,c in enumerate(counts):
         if c==0:
             embeddings[i] = np.random.normal(scale=std,size=dim)
@@ -26,7 +32,6 @@ def embeddings_for_tokenizer(tokenizer,dim,std=0.05):
 def main():
     tokenizer = load(TOKENIZER_20K_10K)
     embeddings = embeddings_for_tokenizer(tokenizer, 100)
-    print (embeddings)
 
 
 if __name__ == "__main__":

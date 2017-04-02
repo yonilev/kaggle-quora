@@ -25,8 +25,8 @@ def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,redu
                                      monitor='val_binary_crossentropy', verbose=1,
                                      save_best_only=True,save_weights_only=True))
     callbacks.append(EarlyStopping(monitor='val_binary_crossentropy', patience=early_stopping_patience, verbose=1))
-    callbacks.append(ReduceLROnPlateau(monitor='val_binary_crossentropy', factor=0.5, patience=reduce_lr_patience))
-    callbacks.append(LearningRateDecay(0.9))
+    callbacks.append(ReduceLROnPlateau(monitor='val_binary_crossentropy', factor=0.1, patience=reduce_lr_patience))
+    callbacks.append(LearningRateDecay(0.5))
 
     history = model.model.fit_generator(train_gen,train_steps,validation_data=val_gen,
                               validation_steps=val_steps,epochs=epochs,callbacks=callbacks)

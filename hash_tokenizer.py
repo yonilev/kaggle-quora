@@ -74,8 +74,6 @@ def main():
 
     fit_tokenizer(None,1,TOKENIZER_ALL,df_train)
 
-
-
     pass
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional,Dropout,\
-    Activation,BatchNormalization,Conv1D,MaxPool1D,Flatten
+    Conv1D,MaxPool1D,Flatten
 from keras.layers.merge import add,concatenate,multiply,maximum
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
@@ -10,7 +10,6 @@ from hash_tokenizer import *
 from embedding import embeddings_for_tokenizer
 import math
 import json
-import random
 
 
 class Siamese(object):
@@ -39,10 +38,7 @@ class Siamese(object):
         hidden = self._merge_sides(hidden1,hidden2)
 
         for _ in range(self.params.dense_layers):
-            hidden = Dense(self.params.dense_dim,kernel_regularizer=l2(self.params.l2_dense))(hidden)
-            if self.params.batch_norm:
-                hidden = BatchNormalization()(hidden)
-            hidden = Activation('relu')(hidden)
+            hidden = Dense(self.params.dense_dim,activation='relu',kernel_regularizer=l2(self.params.l2_dense))(hidden)
             hidden = Dropout(self.params.dropout)(hidden)
 
         predictions = Dense(1,activation='sigmoid',
@@ -90,9 +86,9 @@ class Siamese(object):
 
     def create_inputs(self,df):
         sequences1 = self.tokenizer.texts_to_sequences(df.question1)
-        input1 = pad_sequences(sequences1, maxlen=self.params.seq_length, truncating='post')
+        input1 = pad_sequences(sequences1, maxlen=self.params.seq_length)
         sequences2 = self.tokenizer.texts_to_sequences(df.question2)
-        input2 = pad_sequences(sequences2, maxlen=self.params.seq_length, truncating='post')
+        input2 = pad_sequences(sequences2, maxlen=self.params.seq_length)
         return [input1,input2]
 
     def inputs_generator(self,df,train=True,batch_size=None):
@@ -153,11 +149,10 @@ class Params(object):
         self.dense_dim = 100
         self.embedding_dim = 100
         self.batch_size = 128
-        self.l2_embedding = 0.0000001
-        self.l2_siamese = 0.0001
-        self.l2_dense = 0.0001
+        self.l2_embedding = 0.000001
+        self.l2_siamese = 0.000001
+        self.l2_dense = 0.01
         self.lr = 0.001
-        self.batch_norm = 0
         self.dropout = 0.1
         self.pre_train_embedding = 1
         self.tokenizer = None

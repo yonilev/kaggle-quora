@@ -64,15 +64,16 @@ def fit_tokenizer(nb_words,hash_vec_size,file_name,df):
 
 
 TOKENIZER_20K_10K = 'tokenizers/tokenizer_20k_10k.p'
+TOKENIZER_20K_1K = 'tokenizers/tokenizer_20k_1k.p'
 TOKENIZER_ALL = 'tokenizers/tokenizer_all.p'
 
 
 def main():
     df_train,_,_ = read_train()
 
-    fit_tokenizer(20000,10000,TOKENIZER_20K_10K,df_train)
+    fit_tokenizer(20000,1000,TOKENIZER_20K_1K,df_train)
 
-    fit_tokenizer(None,1,TOKENIZER_ALL,df_train)
+    # fit_tokenizer(None,1,TOKENIZER_ALL,df_train)
 
     pass
 

@@ -1,11 +1,12 @@
 from abc import abstractmethod
 
 from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional,Dropout,\
-    Conv1D,MaxPool1D,Flatten
-from keras.layers.merge import add,concatenate,multiply,maximum
+    Conv1D,MaxPool1D,Flatten,Lambda
+from keras.layers.merge import concatenate
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.regularizers import l2
+import keras.backend as K
 from hash_tokenizer import *
 from embedding import embeddings_for_tokenizer
 import math
@@ -21,7 +22,7 @@ class Siamese(object):
         self.model = self._create_model()
 
         if self.verbose:
-            print (self.model.summary())
+            self.model.summary()
 
     def _create_model(self):
         input_shape = (self.params.seq_length,)
@@ -30,12 +31,12 @@ class Siamese(object):
 
         shared_model = self._get_shared_model(input_shape)
         if self.verbose:
-            print (shared_model.summary())
+            shared_model.summary()
 
         hidden1 = shared_model(input1)
         hidden2 = shared_model(input2)
 
-        hidden = self._merge_sides(hidden1,hidden2)
+        hidden = Lambda(abs_diff,output_shape=(shared_model.output_shape[1],))([hidden1,hidden2])
 
         for _ in range(self.params.dense_layers):
             hidden = Dense(self.params.dense_dim,activation='relu',kernel_regularizer=l2(self.params.l2_dense))(hidden)
@@ -59,18 +60,10 @@ class Siamese(object):
                             output_dim=self.params.embedding_dim,
                             input_length=self.params.seq_length,
                             embeddings_regularizer=l2(self.params.l2_embedding),
-                            weights=weights)(input1)
+                            weights=weights,mask_zero=True)(input1)
         outputs = self.siamese_layers(embedding)
         return Model(inputs=input1,outputs=outputs)
 
-
-    @staticmethod
-    def _merge_sides(hidden1, hidden2):
-        merges = list()
-        merges.append(add([hidden1,hidden2]))
-        merges.append(multiply([hidden1,hidden2]))
-        merges.append(maximum([hidden1,hidden2]))
-        return concatenate(merges)
 
     @abstractmethod
     def siamese_layers(self, x):
@@ -115,12 +108,17 @@ class Siamese(object):
         return [p[0] for p in preds]
 
 
+def abs_diff(hiddens):
+    hidden1,hidden2 = hiddens
+    return K.abs(hidden1-hidden2)
+
+
 class LSTMSiamese(Siamese):
     def siamese_layers(self, x):
         h = x
         for _ in range(self.params.lstm_layers-1):
-           h = Bidirectional(LSTM(self.params.lstm_dim, return_sequences=True, kernel_regularizer=l2(self.params.l2_siamese)))(h)
-        return Bidirectional(LSTM(self.params.lstm_dim, kernel_regularizer=l2(self.params.l2_siamese)))(h)
+           h = Bidirectional(LSTM(self.params.lstm_dim,activation='tanh',return_sequences=True, kernel_regularizer=l2(self.params.l2_siamese)))(h)
+        return Bidirectional(LSTM(self.params.lstm_dim,activation='tanh', kernel_regularizer=l2(self.params.l2_siamese)))(h)
 
     def generate_params(self,random_params):
         return LSTMParams(random_params)
@@ -144,18 +142,19 @@ class CNNSiamese(Siamese):
 
 class Params(object):
     def __init__(self,random_params):
-        self.seq_length = 50
+        self.seq_length = 30
         self.dense_layers = 2
         self.dense_dim = 100
-        self.embedding_dim = 100
-        self.batch_size = 128
-        self.l2_embedding = 0.000001
-        self.l2_siamese = 0.000001
-        self.l2_dense = 0.01
+        self.embedding_dim = 300
+        self.batch_size = 64
+        self.l2_embedding = 0
+        self.l2_siamese = 1e-4
+        self.l2_dense = 1e-4
         self.lr = 0.001
         self.dropout = 0.1
         self.pre_train_embedding = 1
         self.tokenizer = None
+        self.clipnorm = 1
 
         if random_params:
             pass
@@ -170,8 +169,7 @@ class LSTMParams(Params):
         super(LSTMParams, self).__init__(random_params)
         self.model = 'lstm'
         self.lstm_layers = 1
-        self.lstm_dim = 100
-        self.seq_length = 30
+        self.lstm_dim = 50
 
         if random_params:
             pass
@@ -184,7 +182,6 @@ class CNNParams(Params):
         self.min_kernel = 1
         self.max_kernel = 3
         self.filters = 50
-        self.seq_length = 50
 
         if random_params:
             pass

@@ -6,9 +6,9 @@ from keras.layers.merge import concatenate
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
 from keras.regularizers import l2
-import keras.backend as K
 from hash_tokenizer import *
 from embedding import embeddings_for_tokenizer
+from attention import *
 import math
 import json
 
@@ -116,9 +116,10 @@ def abs_diff(hiddens):
 class LSTMSiamese(Siamese):
     def siamese_layers(self, x):
         h = x
-        for _ in range(self.params.lstm_layers-1):
+        for _ in range(self.params.lstm_layers):
            h = Bidirectional(LSTM(self.params.lstm_dim,activation='tanh',return_sequences=True, kernel_regularizer=l2(self.params.l2_siamese)))(h)
-        return Bidirectional(LSTM(self.params.lstm_dim,activation='tanh', kernel_regularizer=l2(self.params.l2_siamese)))(h)
+
+        return AttentionWithContext(W_regularizer=l2(self.params.l2_siamese),u_regularizer=l2(self.params.l2_siamese))(h)
 
     def generate_params(self,random_params):
         return LSTMParams(random_params)
@@ -147,7 +148,7 @@ class Params(object):
         self.dense_dim = 100
         self.embedding_dim = 300
         self.batch_size = 64
-        self.l2_embedding = 0
+        self.l2_embedding = 1e-7
         self.l2_siamese = 1e-4
         self.l2_dense = 1e-4
         self.lr = 0.001

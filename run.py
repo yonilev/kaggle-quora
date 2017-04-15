@@ -2,9 +2,9 @@ from submission import *
 
 
 def main():
-    prefix = 'lstm_attention'
+    prefix = 'gru_attention'
     tokenizer = load(TOKENIZER_20K_1K)
-    model = LSTMSiamese(tokenizer,verbose=True)
+    model = RNNSiamese(tokenizer, verbose=True)
     df_train,df_val,_ = read_train()
     train_model(model,df_train,df_val,50,prefix,2,1)
     make_submission(prefix, TOKENIZER_20K_1K)

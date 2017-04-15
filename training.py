@@ -56,7 +56,7 @@ def params_search(experiments,epochs,nrows,early_stopping_patience,reduce_lr_pat
         try:
             prefix += 1
             print ('Experiment:',experiment)
-            model_class = random.choice([CNNSiamese,LSTMSiamese])
+            model_class = random.choice([CNNSiamese, RNNSiamese])
             tokenizer = random.choice([tokenizer1, tokenizer2])
             model = model_class(tokenizer,random_params=True)
             df_train,df_val,_ = read_train(nrows=nrows)
@@ -74,7 +74,7 @@ def evaluate(model):
 
 def main():
     tokenizer = load(TOKENIZER_20K_10K)
-    model = LSTMSiamese(tokenizer)
+    model = RNNSiamese(tokenizer)
     df_train,df_val,_ = read_train()
     train_model(model,df_train,df_val,50,'lstm_embeddings2',2,0)
 

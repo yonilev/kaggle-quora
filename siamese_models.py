@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from keras.layers import Input, LSTM, Dense,Embedding,Bidirectional,Dropout,\
+from keras.layers import Input,GRU, Dense,Embedding,Bidirectional,Dropout,\
     Conv1D,MaxPool1D,Flatten,Lambda
 from keras.layers.merge import concatenate
 from keras.models import Model
@@ -113,16 +113,20 @@ def abs_diff(hiddens):
     return K.abs(hidden1-hidden2)
 
 
-class LSTMSiamese(Siamese):
+class RNNSiamese(Siamese):
     def siamese_layers(self, x):
         h = x
-        for _ in range(self.params.lstm_layers):
-           h = Bidirectional(LSTM(self.params.lstm_dim,activation='tanh',return_sequences=True, kernel_regularizer=l2(self.params.l2_siamese)))(h)
+        for _ in range(self.params.rnn_layers):
+           h = Bidirectional(GRU(self.params.rnn_dim,
+                                 return_sequences=True,
+                                 kernel_regularizer=l2(self.params.l2_siamese),
+                                 recurrent_regularizer=l2(self.params.l2_siamese)))(h)
 
-        return AttentionWithContext(W_regularizer=l2(self.params.l2_siamese),u_regularizer=l2(self.params.l2_siamese))(h)
+        return AttentionWithContext(W_regularizer=l2(self.params.l2_siamese),
+                                    u_regularizer=l2(self.params.l2_siamese))(h)
 
     def generate_params(self,random_params):
-        return LSTMParams(random_params)
+        return RNNParams(random_params)
 
 
 class CNNSiamese(Siamese):
@@ -165,12 +169,12 @@ class Params(object):
         return str(json.dumps(self.__dict__))
 
 
-class LSTMParams(Params):
+class RNNParams(Params):
     def __init__(self,random_params):
-        super(LSTMParams, self).__init__(random_params)
-        self.model = 'lstm'
-        self.lstm_layers = 1
-        self.lstm_dim = 50
+        super(RNNParams, self).__init__(random_params)
+        self.model = 'rnn'
+        self.rnn_layers = 1
+        self.rnn_dim = 50
 
         if random_params:
             pass
@@ -198,9 +202,9 @@ def load_from_file(prefix,tokenizer_file):
         params.__dict__ = params_dic
         o = CNNSiamese(tokenizer,params)
     else:
-        params = LSTMParams(False)
+        params = RNNParams(False)
         params.__dict__ = params_dic
-        o = LSTMSiamese(tokenizer,params)
+        o = RNNSiamese(tokenizer, params)
     o.model.load_weights('models/{}.weights'.format(prefix))
     return o
 

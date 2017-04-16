@@ -1,5 +1,4 @@
 import random
-
 from siamese_models import *
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping,ModelCheckpoint,ReduceLROnPlateau,Callback

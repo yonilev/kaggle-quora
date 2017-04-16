@@ -2,7 +2,7 @@ from submission import *
 
 
 def main():
-    prefix = 'gru_attention'
+    prefix = 'lstm_features'
     tokenizer = load(TOKENIZER_20K_1K)
     model = RNNSiamese(tokenizer, verbose=True)
     df_train,df_val,_ = read_train()

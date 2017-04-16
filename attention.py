@@ -74,10 +74,8 @@ class AttentionWithContext(Layer):
 
         uit = K.tanh(uit)
         ait = K.dot(uit, self.u)
-
+        ait -= K.max(ait,axis=1, keepdims=True)
         a = K.exp(ait)
-        # for numerical stability
-        a -= K.max(a,axis=1, keepdims=True)
 
         # apply mask after the exp. will be re-normalized next
         if mask is not None:

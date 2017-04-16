@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
-from keras.layers import Input,GRU, Dense,Embedding,Bidirectional,Dropout,\
-    Conv1D,MaxPool1D,Flatten,Lambda
+from keras.layers import Input, GRU, LSTM, Dense, Embedding, Bidirectional, Dropout, \
+    Lambda
 from keras.layers.merge import concatenate
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
@@ -9,16 +9,18 @@ from keras.regularizers import l2
 from hash_tokenizer import *
 from embedding import embeddings_for_tokenizer
 from attention import *
+from features_extraction import FeaturesExtractor
 import math
 import json
 
 
-class Siamese(object):
-    def __init__(self,tokenizer,random_params=False,verbose=False):
+class RNNSiamese(object):
+    def __init__(self, tokenizer, random_params=False, verbose=False):
         self.tokenizer = tokenizer
-        self.params = self.generate_params(random_params)
+        self.params = Params(random_params)
         self.params.tokenizer = self.tokenizer.path
         self.verbose = verbose
+        self.features_extractor = FeaturesExtractor(tokenizer)
         self.model = self._create_model()
 
         if self.verbose:
@@ -35,118 +37,92 @@ class Siamese(object):
 
         hidden1 = shared_model(input1)
         hidden2 = shared_model(input2)
+        hidden = Lambda(abs_diff, output_shape=(shared_model.output_shape[1],))([hidden1, hidden2])
 
-        hidden = Lambda(abs_diff,output_shape=(shared_model.output_shape[1],))([hidden1,hidden2])
+        input3 = Input(shape=(self.features_extractor.number_of_features(),))
+        hidden = concatenate([hidden,input3])
 
         for _ in range(self.params.dense_layers):
-            hidden = Dense(self.params.dense_dim,activation='relu',kernel_regularizer=l2(self.params.l2_dense))(hidden)
+            hidden = Dense(self.params.dense_dim, activation='relu', kernel_regularizer=l2(self.params.l2_dense))(
+                hidden)
             hidden = Dropout(self.params.dropout)(hidden)
 
-        predictions = Dense(1,activation='sigmoid',
+        predictions = Dense(1, activation='sigmoid',
                             kernel_regularizer=l2(self.params.l2_dense))(hidden)
-        model = Model(inputs=[input1,input2], outputs=predictions)
+        model = Model(inputs=[input1, input2,input3], outputs=predictions)
         return model
 
-    def _get_shared_model(self,input_shape):
+    def _get_shared_model(self, input_shape):
         input1 = Input(input_shape)
 
         if self.params.pre_train_embedding:
-            weights = embeddings_for_tokenizer(self.tokenizer,self.params.embedding_dim)
+            weights = embeddings_for_tokenizer(self.tokenizer, self.params.embedding_dim)
             weights = [weights]
         else:
             weights = None
 
         embedding = Embedding(input_dim=self.tokenizer.get_input_dim(),
-                            output_dim=self.params.embedding_dim,
-                            input_length=self.params.seq_length,
-                            embeddings_regularizer=l2(self.params.l2_embedding),
-                            weights=weights,mask_zero=True)(input1)
+                              output_dim=self.params.embedding_dim,
+                              input_length=self.params.seq_length,
+                              embeddings_regularizer=l2(self.params.l2_embedding),
+                              weights=weights, mask_zero=True)(input1)
         outputs = self.siamese_layers(embedding)
-        return Model(inputs=input1,outputs=outputs)
+        return Model(inputs=input1, outputs=outputs)
 
+    def siamese_layers(self, x, attention=False):
+        h = Bidirectional(LSTM(self.params.rnn_dim,
+                               return_sequences=attention,
+                               kernel_regularizer=l2(self.params.l2_siamese),
+                               recurrent_regularizer=l2(self.params.l2_siamese)))(x)
 
-    @abstractmethod
-    def siamese_layers(self, x):
-        """
-        add siamese layers to model, e.g., lstm.
-        """
+        if attention:
+            return AttentionWithContext(W_regularizer=l2(self.params.l2_siamese),
+                                        u_regularizer=l2(self.params.l2_siamese))(h)
+        return h
 
-    @abstractmethod
-    def generate_params(self,random_params):
-        """
-        generate model params
-        """
-
-    def create_inputs(self,df):
+    def create_inputs(self, df):
         sequences1 = self.tokenizer.texts_to_sequences(df.question1)
         input1 = pad_sequences(sequences1, maxlen=self.params.seq_length)
         sequences2 = self.tokenizer.texts_to_sequences(df.question2)
         input2 = pad_sequences(sequences2, maxlen=self.params.seq_length)
-        return [input1,input2]
+        return [input1, input2]
 
-    def inputs_generator(self,df,train=True,batch_size=None):
+    def inputs_generator(self, df, train=True, batch_size=None):
         l = len(df)
         if batch_size is None:
             batch_size = self.params.batch_size
 
+        df['features'] = self.features_extractor.extract(df)
+
         while True:
             for ndx in range(0, l, batch_size):
-                curr_batch =  df[ndx:min(ndx + batch_size, l)]
+                curr_batch = df[ndx:min(ndx + batch_size, l)]
                 labels = None
                 if train:
                     labels = curr_batch.is_duplicate
 
-                yield self.create_inputs(curr_batch),labels
+                input1, input2 = self.create_inputs(curr_batch)
+                input3 = np.array(curr_batch.features.tolist())
+                yield [input1,input2,input3], labels
 
-    def num_of_steps(self,df,batch_size):
-        return int(math.ceil(len(df)*1.0/batch_size))
+    @staticmethod
+    def num_of_steps(df, batch_size):
+        return int(math.ceil(len(df) * 1.0 / batch_size))
 
-    def predict(self,df,batch_size=1000):
-        steps = self.num_of_steps(df,batch_size)
-        gen = self.inputs_generator(df,False,batch_size=batch_size)
-        preds = self.model.predict_generator(gen,steps,verbose=True)
+    def predict(self, df, batch_size=1000):
+        steps = self.num_of_steps(df, batch_size)
+        gen = self.inputs_generator(df, False, batch_size=batch_size)
+        preds = self.model.predict_generator(gen, steps, verbose=True)
         return [p[0] for p in preds]
 
 
 def abs_diff(hiddens):
-    hidden1,hidden2 = hiddens
-    return K.abs(hidden1-hidden2)
-
-
-class RNNSiamese(Siamese):
-    def siamese_layers(self, x):
-        h = x
-        for _ in range(self.params.rnn_layers):
-           h = Bidirectional(GRU(self.params.rnn_dim,
-                                 return_sequences=True,
-                                 kernel_regularizer=l2(self.params.l2_siamese),
-                                 recurrent_regularizer=l2(self.params.l2_siamese)))(h)
-
-        return AttentionWithContext(W_regularizer=l2(self.params.l2_siamese),
-                                    u_regularizer=l2(self.params.l2_siamese))(h)
-
-    def generate_params(self,random_params):
-        return RNNParams(random_params)
-
-
-class CNNSiamese(Siamese):
-    def siamese_layers(self, x):
-        features = list()
-        for kernel_size in range(self.params.min_kernel,self.params.max_kernel+1):
-            pool_length = self.params.seq_length - kernel_size + 1
-            filters = min(200,self.params.filters*kernel_size)
-            conv = Conv1D(filters,kernel_size,activation='tanh',kernel_regularizer=l2(self.params.l2_siamese))(x)
-            pool = MaxPool1D(pool_length)(conv)
-            feature = Flatten()(pool)
-            features.append(feature)
-        return concatenate(features)
-
-    def generate_params(self,random_params):
-        return CNNParams(random_params)
+    hidden1, hidden2 = hiddens
+    return K.abs(hidden1 - hidden2)
 
 
 class Params(object):
-    def __init__(self,random_params):
+    def __init__(self, random_params):
         self.seq_length = 30
         self.dense_layers = 2
         self.dense_dim = 100
@@ -160,51 +136,23 @@ class Params(object):
         self.pre_train_embedding = 1
         self.tokenizer = None
         self.clipnorm = 1
-
-        if random_params:
-            pass
-
-
-    def __str__(self):
-        return str(json.dumps(self.__dict__))
-
-
-class RNNParams(Params):
-    def __init__(self,random_params):
-        super(RNNParams, self).__init__(random_params)
-        self.model = 'rnn'
-        self.rnn_layers = 1
         self.rnn_dim = 50
 
         if random_params:
             pass
 
-
-class CNNParams(Params):
-    def __init__(self,random_params):
-        super(CNNParams, self).__init__(random_params)
-        self.model = 'cnn'
-        self.min_kernel = 1
-        self.max_kernel = 3
-        self.filters = 50
-
-        if random_params:
-            pass
+    def __str__(self):
+        return str(json.dumps(self.__dict__))
 
 
-def load_from_file(prefix,tokenizer_file):
+def load_from_file(prefix, tokenizer_file):
     tokenizer = load(tokenizer_file)
     with open('models/{}.params'.format(prefix)) as f:
         params_dic = json.load(f)
 
-    if params_dic['model']=='cnn':
-        params = CNNParams(False)
-        params.__dict__ = params_dic
-        o = CNNSiamese(tokenizer,params)
-    else:
-        params = RNNParams(False)
-        params.__dict__ = params_dic
-        o = RNNSiamese(tokenizer, params)
+    params = Params(False)
+    params.__dict__ = params_dic
+    o = RNNSiamese(tokenizer, params)
     o.model.load_weights('models/{}.weights'.format(prefix))
     return o
 
@@ -215,4 +163,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

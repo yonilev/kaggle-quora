@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from nltk import word_tokenize
+from nltk.tokenize import PunktSentenceTokenizer
 from keras.preprocessing.text import text_to_word_sequence
 
 
@@ -12,7 +13,7 @@ PREPROCESSED = '_preprocessed'
 
 def read_file(file_name,nrows=None,preprocessed=True):
     if preprocessed:
-        file_name = file_name.replace('.csv', '%s.csv' % PREPROCESSED)
+        file_name = preprocessed_name(file_name)
     df =  pd.read_csv(file_name,nrows=nrows)
     df['question1'] = df.question1.apply(str)
     df['question2'] = df.question2.apply(str)
@@ -20,20 +21,32 @@ def read_file(file_name,nrows=None,preprocessed=True):
     return df
 
 
+def preprocessed_name(file_name):
+    return file_name.replace('.csv', '%s.csv' % PREPROCESSED)
+
+
 def preprocess_files():
     preprocess_file(TRAIN_FILE)
     preprocess_file(TEST_FILE)
 
 
-def preprocess_file(file):
-    df = read_file(file,preprocessed=False)
+def preprocess_file(file_name):
+    df = read_file(file_name,preprocessed=False)
     df['question1'] = df.question1.apply(tokenize_text)
     df['question2'] = df.question2.apply(tokenize_text)
-    df.to_csv(file.replace('.csv', '%s.csv' % PREPROCESSED), index=False)
+    df.to_csv(preprocessed_name(file_name), index=False)
 
 
 def tokenize_text(text):
     text = text.replace('’',"'")
+    sent_tokenizer = PunktSentenceTokenizer()
+    sents = sent_tokenizer.tokenize(text)
+    l = list()
+    for s in sents:
+        l.append('mybeginsent')
+        l.append(s)
+        l.append('myendsent')
+    text = ' '.join(l)
     text = ' '.join(text_to_word_sequence(text))
     return ' '.join(word_tokenize(text))
 

@@ -48,13 +48,16 @@ class HashTokenizer(Tokenizer):
 
         return num_words + self.hash_vec_size + 1
 
+    def is_unknown(self,word):
+        return self.get_word_index(word)>self.num_words
+
 
 def test_hash_tokenizer():
-    tokenizer = HashTokenizer(3,1)
+    tokenizer = HashTokenizer(3,1,'')
     texts = ['a a b c c d', 'e e f g']
     tokenizer.fit_on_texts(texts)
 
-    print (tokenizer.get_input_dim())
+
 
 
 def fit_tokenizer(nb_words,hash_vec_size,file_name,df):
@@ -63,15 +66,16 @@ def fit_tokenizer(nb_words,hash_vec_size,file_name,df):
     save(tokenizer,file_name)
 
 
-TOKENIZER_20K_10K = 'tokenizers/tokenizer_20k_10k.p'
 TOKENIZER_20K_1K = 'tokenizers/tokenizer_20k_1k.p'
-TOKENIZER_ALL = 'tokenizers/tokenizer_all.p'
+TOKENIZER_20K_ONE = 'tokenizers/tokenizer_20k_1.p'
+
 
 
 def main():
     df_train,_,_ = read_train()
 
     fit_tokenizer(20000,1000,TOKENIZER_20K_1K,df_train)
+    fit_tokenizer(20000,1,TOKENIZER_20K_ONE,df_train)
 
     # fit_tokenizer(None,1,TOKENIZER_ALL,df_train)
 

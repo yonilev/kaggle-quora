@@ -23,6 +23,14 @@ class UniqueWords:
         return set(q)
 
 
+class UnknownWords:
+    def __init__(self,tokenizer):
+        self.tokenizer = tokenizer
+
+    def extract(self,q):
+        return set([w for w in q if self.tokenizer.is_unknown(w)])
+
+
 ######## FEATURES ##########
 
 class PairwiseFeature:
@@ -36,12 +44,20 @@ class PairwiseFeature:
 class BothContainFeature(PairwiseFeature):
     def extract(self,q1,q2):
         e1,e2 = self.extract_from(q1,q2)
+
+        if type(e1) is set:
+            return int(len(e1)>0 and len(e2)>0)
+
         return e1 * e2
 
 
 class OneContainsFeature(PairwiseFeature):
     def extract(self,q1,q2):
         e1,e2 = self.extract_from(q1,q2)
+
+        if type(e1) is set:
+            return int((len(e1)>0 and len(e2)==0) or (len(e1)==0 and len(e2)>0))
+
         if e1*e2==0 and e1+e2==1:
             return 1
         return 0
@@ -56,7 +72,10 @@ class RatioFeature(PairwiseFeature):
 class JaccardFeature(PairwiseFeature):
     def extract(self,q1,q2):
         e1,e2 = self.extract_from(q1,q2)
-        return len(e1&e2)/len(e1|e2)
+        d = len(e1 | e2)
+        if d>0:
+            return len(e1&e2) / d
+        return 0
 
 
 class JaccardIdfFeature(PairwiseFeature):
@@ -82,6 +101,9 @@ class JaccardIdfFeature(PairwiseFeature):
 class FeaturesExtractor:
     def __init__(self,tokenizer):
         self.features = list()
+        self.features.append(BothContainFeature(UnknownWords(tokenizer)))
+        self.features.append(OneContainsFeature(UnknownWords(tokenizer)))
+        self.features.append(JaccardFeature(UnknownWords(tokenizer)))
         self.features.append(JaccardIdfFeature(UniqueWords(), tokenizer))
         self.features.append(JaccardFeature(UniqueWords()))
         self.features.append(RatioFeature(NumberOfWords()))
@@ -109,7 +131,11 @@ class FeaturesExtractor:
 
 
 def main():
-    pass
+    tokenizer = load(TOKENIZER_20K_ONE)
+    df_train,_,_ = read_train(nrows=5)
+    fe = FeaturesExtractor(tokenizer)
+    print (df_train)
+    print (fe.extract(df_train))
 
 if __name__ == "__main__":
     main()

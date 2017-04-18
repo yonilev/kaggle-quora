@@ -26,7 +26,7 @@ def train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,redu
                                     verbose=1, save_best_only=True,save_weights_only=True))
     callbacks.append(EarlyStopping(patience=early_stopping_patience, verbose=1))
     callbacks.append(ReduceLROnPlateau(factor=0.1, patience=reduce_lr_patience, verbose=1))
-    callbacks.append(LearningRateDecay(0.95))
+    callbacks.append(LearningRateDecay(0.5))
 
     history = model.model.fit_generator(train_gen,train_steps,validation_data=val_gen,
                               validation_steps=val_steps,epochs=epochs,callbacks=callbacks)
@@ -48,16 +48,15 @@ def params_search(experiments,epochs,nrows,early_stopping_patience,reduce_lr_pat
     for f in glob.glob(('models/*')):
         prefix = int(f.split('/')[-1].split('.')[0])
 
-    tokenizer1 = load(TOKENIZER_20K_10K)
-    tokenizer2 = load(TOKENIZER_ALL)
+    tokenizer1 = load(TOKENIZER_20K_1K)
+    tokenizer2 = load(TOKENIZER_20K_ONE)
 
     for experiment in range(experiments):
         try:
             prefix += 1
             print ('Experiment:',experiment)
-            model_class = random.choice([CNNSiamese, RNNSiamese])
             tokenizer = random.choice([tokenizer1, tokenizer2])
-            model = model_class(tokenizer,random_params=True)
+            model = RNNSiamese(tokenizer,random_params=True)
             df_train,df_val,_ = read_train(nrows=nrows)
             train_model(model,df_train,df_val,epochs,prefix,early_stopping_patience,reduce_lr_patience)
             print ('\n\n')
@@ -72,7 +71,7 @@ def evaluate(model):
 
 
 def main():
-    tokenizer = load(TOKENIZER_20K_10K)
+    tokenizer = load(TOKENIZER_20K_ONE)
     model = RNNSiamese(tokenizer)
     df_train,df_val,_ = read_train()
     train_model(model,df_train,df_val,50,'lstm_embeddings2',2,0)

@@ -66,10 +66,10 @@ class RNNSiamese(object):
                               input_length=self.params.seq_length,
                               embeddings_regularizer=l2(self.params.l2_embedding),
                               weights=weights, mask_zero=True)(input1)
-        outputs = self.siamese_layers(embedding)
+        outputs = self.siamese_layers(embedding,self.params.attention)
         return Model(inputs=input1, outputs=outputs)
 
-    def siamese_layers(self, x, attention=False):
+    def siamese_layers(self, x, attention):
         h = Bidirectional(LSTM(self.params.rnn_dim,
                                return_sequences=attention,
                                kernel_regularizer=l2(self.params.l2_siamese),
@@ -124,7 +124,7 @@ def abs_diff(hiddens):
 class Params(object):
     def __init__(self, random_params):
         self.seq_length = 30
-        self.dense_layers = 2
+        self.dense_layers = 1
         self.dense_dim = 100
         self.embedding_dim = 300
         self.batch_size = 64
@@ -137,6 +137,7 @@ class Params(object):
         self.tokenizer = None
         self.clipnorm = 1
         self.rnn_dim = 50
+        self.attention = False
 
         if random_params:
             pass

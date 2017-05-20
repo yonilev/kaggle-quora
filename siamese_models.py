@@ -9,7 +9,6 @@ from keras.regularizers import l2
 from hash_tokenizer import *
 from embedding import embeddings_for_tokenizer
 from attention import *
-from features_extraction import FeaturesExtractor
 import math
 import json
 
@@ -20,7 +19,6 @@ class RNNSiamese(object):
         self.params = Params(random_params)
         self.params.tokenizer = self.tokenizer.path
         self.verbose = verbose
-        self.features_extractor = FeaturesExtractor(tokenizer)
         self.model = self._create_model()
 
         if self.verbose:
@@ -37,10 +35,7 @@ class RNNSiamese(object):
 
         hidden1 = shared_model(input1)
         hidden2 = shared_model(input2)
-        hidden = Lambda(abs_diff, output_shape=(shared_model.output_shape[1],))([hidden1, hidden2])
-
-        input3 = Input(shape=(self.features_extractor.number_of_features(),))
-        hidden = concatenate([hidden,input3])
+        hidden = concatenate([hidden1,hidden2])
 
         for _ in range(self.params.dense_layers):
             hidden = Dense(self.params.dense_dim, activation='relu', kernel_regularizer=l2(self.params.l2_dense))(
@@ -49,14 +44,14 @@ class RNNSiamese(object):
 
         predictions = Dense(1, activation='sigmoid',
                             kernel_regularizer=l2(self.params.l2_dense))(hidden)
-        model = Model(inputs=[input1, input2,input3], outputs=predictions)
+        model = Model(inputs=[input1, input2], outputs=predictions)
         return model
 
     def _get_shared_model(self, input_shape):
         input1 = Input(input_shape)
 
         if self.params.pre_train_embedding:
-            weights = embeddings_for_tokenizer(self.tokenizer, self.params.embedding_dim)
+            weights = embeddings_for_tokenizer(self.tokenizer)
             weights = [weights]
         else:
             weights = None
@@ -65,7 +60,7 @@ class RNNSiamese(object):
                               output_dim=self.params.embedding_dim,
                               input_length=self.params.seq_length,
                               embeddings_regularizer=l2(self.params.l2_embedding),
-                              weights=weights, mask_zero=True)(input1)
+                              weights=weights, mask_zero=True,trainable=False)(input1)
         outputs = self.siamese_layers(embedding,self.params.attention)
         return Model(inputs=input1, outputs=outputs)
 
@@ -92,8 +87,6 @@ class RNNSiamese(object):
         if batch_size is None:
             batch_size = self.params.batch_size
 
-        df['features'] = self.features_extractor.extract(df)
-
         while True:
             for ndx in range(0, l, batch_size):
                 curr_batch = df[ndx:min(ndx + batch_size, l)]
@@ -102,8 +95,7 @@ class RNNSiamese(object):
                     labels = curr_batch.is_duplicate
 
                 input1, input2 = self.create_inputs(curr_batch)
-                input3 = np.array(curr_batch.features.tolist())
-                yield [input1,input2,input3], labels
+                yield [input1,input2], labels
 
     @staticmethod
     def num_of_steps(df, batch_size):
@@ -124,11 +116,11 @@ def abs_diff(hiddens):
 class Params(object):
     def __init__(self, random_params):
         self.seq_length = 30
-        self.dense_layers = 1
+        self.dense_layers = 2
         self.dense_dim = 100
         self.embedding_dim = 300
         self.batch_size = 64
-        self.l2_embedding = 1e-7
+        self.l2_embedding = 0
         self.l2_siamese = 1e-4
         self.l2_dense = 1e-4
         self.lr = 0.001
@@ -136,7 +128,7 @@ class Params(object):
         self.pre_train_embedding = 1
         self.tokenizer = None
         self.clipnorm = 1
-        self.rnn_dim = 50
+        self.rnn_dim = 100
         self.attention = False
 
         if random_params:

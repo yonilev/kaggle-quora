@@ -12,7 +12,7 @@ def make_submission(prefix,tokenizer_file,evaluate_model=True):
 
 
 def main():
-    make_submission('lstm_embeddings2', TOKENIZER_20K_10K)
+    make_submission('lstm_embeddings2', TOKENIZER_ALL)
 
 
 if __name__ == "__main__":

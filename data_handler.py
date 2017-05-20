@@ -1,14 +1,13 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from nltk import word_tokenize
-from nltk.tokenize import PunktSentenceTokenizer
-from keras.preprocessing.text import text_to_word_sequence
-
+import spacy
 
 SEED = 1234
 TRAIN_FILE = 'data/train.csv'
 TEST_FILE = 'data/test.csv'
 PREPROCESSED = '_preprocessed'
+
+nlp = spacy.load('en')
 
 
 def read_file(file_name,nrows=None,preprocessed=True):
@@ -39,16 +38,14 @@ def preprocess_file(file_name):
 
 def tokenize_text(text):
     text = text.replace('’',"'")
-    sent_tokenizer = PunktSentenceTokenizer()
-    sents = sent_tokenizer.tokenize(text)
+    doc = nlp(text)
     l = list()
-    for s in sents:
+    for sent in doc.sents:
         l.append('mybeginsent')
-        l.append(s)
+        l += [w.string for w in sent]
         l.append('myendsent')
-    text = ' '.join(l)
-    text = ' '.join(text_to_word_sequence(text))
-    return ' '.join(word_tokenize(text))
+    return ' '.join(l)
+
 
 
 def read_train(test_size=0.1,val_size=0.5,nrows=None):

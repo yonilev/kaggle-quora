@@ -1,63 +1,52 @@
 from hash_tokenizer import *
-from gensim.models.word2vec import Word2Vec
 
-GLOVE_FORMAT = 'embeddings/glove.6B.{}d.txt'
-WORD2VEC_FORMAT = 'embeddings/word2vec.traintest.{}d.txt'
+GLOVE = 'embeddings/glove.42B.300d.txt'
+GLOVE_PROCESSED = 'embeddings/glove_processed.42.300d.txt'
+DIM = 300
 
 
+def preprocess(tokenizer):
+    with open(GLOVE_PROCESSED,'w') as f:
+        for l in open(GLOVE):
+            spl = l.strip().split()
+            if len(spl)!=DIM+1:
+                continue
+            word = spl[0].lower()
+            if not tokenizer.is_unknown(word):
+                f.write(l)
 
-def embeddings_for_tokenizer(tokenizer,dim,std=0.05):
-    embeddings = np.zeros((tokenizer.get_input_dim(),dim))
+
+def embeddings_for_tokenizer(tokenizer,std=0.05):
+    embeddings = np.zeros((tokenizer.get_input_dim(),DIM))
     counts = [0] * tokenizer.get_input_dim()
-    for l in open(WORD2VEC_FORMAT.format(dim)):
+    for l in open(GLOVE_PROCESSED):
         spl = l.strip().split()
-        word = spl[0]
-        if word in tokenizer.word_counts:
-            ind = tokenizer.get_word_index(word)
-            embeddings[ind,:] += np.array([float(x) for x in spl[1:]])
-            counts[ind] += 1
+        word = spl[0].lower()
+        ind = tokenizer.get_word_index(word)
+        embeddings[ind,:] += np.array([float(x) for x in spl[1:]])
+        counts[ind] += 1
 
     t = 0
-    for c in counts:
-        if c>0:
-            t+=1
-    print ('embeddings coverage:',t/len(counts))
-
     for i,c in enumerate(counts):
         if c==0:
-            embeddings[i] = np.random.normal(scale=std,size=dim)
+            embeddings[i] = np.random.normal(scale=std,size=DIM)
         else:
             embeddings[i] /= c
+            t+=1
+    print('embeddings coverage:', t / len(counts))
+
+    # for word in tokenizer.word_index:
+    #     ind = tokenizer.get_word_index(word)
+    #     if ind<len(counts) and counts[ind]==0:
+    #         print (word)
 
     return embeddings
 
 
-def train_embedding(dim):
-    model = Word2Vec(MySentences(),size=dim)
-    word_vectors = model.wv
-    del model
-    with open(WORD2VEC_FORMAT.format(dim),'w') as f:
-        for w in word_vectors.vocab:
-            v = word_vectors[w].tolist()
-            v = [w] + [str(x) for x in v]
-            f.write(' '.join(v) + '\n')
-
-
-class MySentences(object):
-    def __iter__(self):
-        for df in pd.read_csv(preprocessed_name(TRAIN_FILE), chunksize=10000):
-            for sent in np.concatenate([df.question1,df.question2]):
-                yield sent.split()
-        for df in pd.read_csv(preprocessed_name(TEST_FILE), chunksize=10000):
-            for sent in np.concatenate([df.question1,df.question2]):
-                yield sent.split()
-
-
 def main():
-    # tokenizer = load(TOKENIZER_20K_10K)
-    # embeddings = embeddings_for_tokenizer(tokenizer, 100)
-    train_embedding(300)
-
+    tokenizer = load(TOKENIZER_ALL)
+    preprocess(tokenizer)
+    embeddings_for_tokenizer(tokenizer)
 
 
 if __name__ == "__main__":

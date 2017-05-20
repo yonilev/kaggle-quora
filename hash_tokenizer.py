@@ -5,8 +5,8 @@ import numpy as np
 
 
 class HashTokenizer(Tokenizer):
-    def __init__(self, num_words,hash_vec_size, path):
-        super(HashTokenizer, self).__init__(num_words)
+    def __init__(self, num_words,hash_vec_size, path,filters=''):
+        super(HashTokenizer, self).__init__(num_words,filters=filters)
         self.hash_vec_size = hash_vec_size
         self.path = path
 
@@ -30,11 +30,11 @@ class HashTokenizer(Tokenizer):
     def get_word_index(self,word):
         i = self.word_index.get(word)
 
-        # OOV
+        # oov
         if not i:
             i = self.get_hashed_index(word)
 
-        # MORE THAN FIX SIZE INDEX
+        # more than fix size index
         elif self.num_words and i>self.num_words:
             i = self.get_hashed_index(word)
 
@@ -49,7 +49,10 @@ class HashTokenizer(Tokenizer):
         return num_words + self.hash_vec_size + 1
 
     def is_unknown(self,word):
-        return self.get_word_index(word)>self.num_words
+        if self.num_words:
+            return self.get_word_index(word)>self.num_words
+        else:
+            return word not in self.word_index
 
 
 def test_hash_tokenizer():
@@ -58,28 +61,20 @@ def test_hash_tokenizer():
     tokenizer.fit_on_texts(texts)
 
 
-
-
 def fit_tokenizer(nb_words,hash_vec_size,file_name,df):
     tokenizer = HashTokenizer(nb_words, hash_vec_size,file_name)
     tokenizer.fit_on_texts(np.concatenate([df.question1,df.question2],axis=0))
     save(tokenizer,file_name)
 
 
-TOKENIZER_20K_1K = 'tokenizers/tokenizer_20k_1k.p'
-TOKENIZER_20K_ONE = 'tokenizers/tokenizer_20k_1.p'
-
+TOKENIZER_ALL = 'tokenizers/tokenizer_all.p'
 
 
 def main():
-    df_train,_,_ = read_train()
+    df_train, df_val, df_test = read_train()
+    df_test2 = read_test()
+    fit_tokenizer(None,1,TOKENIZER_ALL,pd.concat([df_train,df_val,df_test,df_test2]))
 
-    fit_tokenizer(20000,1000,TOKENIZER_20K_1K,df_train)
-    fit_tokenizer(20000,1,TOKENIZER_20K_ONE,df_train)
-
-    # fit_tokenizer(None,1,TOKENIZER_ALL,df_train)
-
-    pass
 
 if __name__ == "__main__":
     main()
